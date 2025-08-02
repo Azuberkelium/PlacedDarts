@@ -1,148 +1,106 @@
-body {
-    font-family: Arial, sans-serif;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    background-color: #f0f0f0;
-    margin: 0;
-    padding: 20px;
-}
+document.addEventListener('DOMContentLoaded', () => {
+    const dartboardContainer = document.getElementById('dartboard-container');
+    const currentScoreDisplay = document.getElementById('current-score');
+    const pdScoreDisplay = document.getElementById('pd-score');
+    const undoButton = document.getElementById('undo-button');
+    const resetButton = document.getElementById('reset-button');
 
-h1 {
-    color: #333;
-}
+    let currentScore = 0;
+    let pdScore = 0;
+    let scoreHistory = [];
 
-#dartboard-container {
-    position: relative;
-    width: 450px;
-    height: 450px;
-    border-radius: 50%;
-    background-color: #333;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    margin-top: 20px;
-}
+    const dartNumbers = [20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5];
 
-.bullseye-25 {
-    position: absolute;
-    width: 80px;
-    height: 80px;
-    border-radius: 50%;
-    background-color: #0c0;
-    cursor: pointer;
-    z-index: 3;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    color: white;
-    font-weight: bold;
-    font-size: 1.2em;
-}
+    const createButton = (value, text, className, radius, angle, colorClass = '') => {
+        const button = document.createElement('button');
+        button.classList.add('dart-button', className);
+        if (colorClass) {
+            button.classList.add(colorClass);
+        }
+        button.dataset.value = value;
+        button.textContent = text;
+        
+        // This is the core fix: `transform: translate()` is a reliable way to center elements
+        // and `transform: rotate()` correctly positions them in a circle without overlap.
+        button.style.transform = `translate(-50%, -50%) rotate(${angle}deg) translate(0, -${radius}px) rotate(-${angle}deg)`;
+        
+        return button;
+    };
 
-.bullseye {
-    position: absolute;
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    background-color: #f00;
-    cursor: pointer;
-    z-index: 4;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    color: white;
-    font-weight: bold;
-    font-size: 1.2em;
-}
+    const buildDartboard = () => {
+        // Center buttons
+        const bullseye50 = createButton(50, '50', 'bullseye', 0, 0);
+        dartboardContainer.appendChild(bullseye50);
 
-.dart-segment {
-    position: absolute;
-    width: 450px;
-    height: 450px;
-    clip-path: polygon(50% 50%, 50% 0, 100% 0, 100% 100%, 0 100%, 0 0); /* This is a placeholder, JS will set the real clip-path */
-    transform-origin: 50% 50%;
-    cursor: pointer;
-    overflow: hidden;
-    color: #fff;
-    font-weight: bold;
-    text-align: center;
-}
+        const bullseye25 = createButton(25, '25', 'bullseye-25', 0, 0);
+        dartboardContainer.appendChild(bullseye25);
 
-.single-section {
-    position: absolute;
-    height: 100%;
-    width: 100%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    pointer-events: none;
-}
+        const degreesPerSector = 360 / dartNumbers.length;
 
-.outer-single-text {
-    position: absolute;
-    font-size: 1em;
-    bottom: 20px;
-    transform: rotate(90deg);
-}
+        dartNumbers.forEach((number, index) => {
+            // Angle starts at the top (0 degrees) for the 20 segment
+            const angleInDegrees = index * degreesPerSector;
+            const colorClass = index % 2 === 0 ? 'red-segment' : 'green-segment';
 
-.inner-single-text {
-    position: absolute;
-    font-size: 1em;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%) rotate(90deg);
-}
+            // Adjusting radius values to prevent overlap
+            const outerNumberRadius = 200;
+            const doubleRadius = 160;
+            const tripleRadius = 120;
+            
+            // Outer Number
+            const outerNumberButton = createButton(number, number, 'outer-number', outerNumberRadius, angleInDegrees, colorClass);
+            dartboardContainer.appendChild(outerNumberButton);
 
-.triple-ring, .double-ring {
-    position: absolute;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-}
+            // Double Ring
+            const doubleButton = createButton(number * 2, `D${number}`, 'double-ring', doubleRadius, angleInDegrees, colorClass);
+            dartboardContainer.appendChild(doubleButton);
 
-/* Base colors for segments */
-.black-segment { background-color: #333; }
-.white-segment { background-color: #fff; }
-.red-segment { background-color: #f00; }
-.green-segment { background-color: #0c0; }
+            // Triple Ring
+            const tripleButton = createButton(number * 3, `T${number}`, 'triple-ring', tripleRadius, angleInDegrees, colorClass);
+            dartboardContainer.appendChild(tripleButton);
+        });
+    };
 
-.score-display {
-    margin-top: 30px;
-}
+    const updateUI = () => {
+        currentScoreDisplay.textContent = currentScore;
+        pdScoreDisplay.textContent = pdScore;
+    };
 
-.coin-container {
-    width: 100px;
-    height: 100px;
-    border-radius: 50%;
-    background-color: #ffcc00;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-size: 2em;
-    font-weight: bold;
-    color: #333;
-    box-shadow: 0 0 5px rgba(0, 0, 0, 0.3);
-}
+    dartboardContainer.addEventListener('click', (event) => {
+        const target = event.target;
+        if (target.classList.contains('dart-button')) {
+            const value = parseInt(target.dataset.value, 10);
+            
+            currentScore += value;
+            scoreHistory.push(value);
 
-.player-score-container {
-    margin-top: 20px;
-    font-size: 1.5em;
-    display: flex;
-    align-items: center;
-}
+            if (currentScore >= 100) {
+                pdScore++;
+                currentScore = 0;
+            }
+            updateUI();
+        }
+    });
 
-.controls {
-    margin-top: 20px;
-}
+    undoButton.addEventListener('click', () => {
+        if (scoreHistory.length > 0) {
+            const lastScore = scoreHistory.pop();
+            currentScore -= lastScore;
+            
+            if (currentScore < 0) {
+                currentScore = 0;
+            }
+            updateUI();
+        }
+    });
 
-.controls button {
-    padding: 10px 20px;
-    font-size: 1em;
-    cursor: pointer;
-    margin: 0 10px;
-    border: 1px solid #ccc;
-    background-color: #eee;
-    border-radius: 5px;
-}
+    resetButton.addEventListener('click', () => {
+        currentScore = 0;
+        pdScore = 0;
+        scoreHistory = [];
+        updateUI();
+    });
+
+    buildDartboard();
+    updateUI();
+});
