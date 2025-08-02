@@ -1,119 +1,107 @@
-body {
-    font-family: Arial, sans-serif;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    background-color: #f0f0f0;
-    margin: 0;
-    padding: 20px;
-}
+document.addEventListener('DOMContentLoaded', () => {
+    const dartboardContainer = document.getElementById('dartboard-container');
+    const currentScoreDisplay = document.getElementById('current-score');
+    const pdScoreDisplay = document.getElementById('pd-score');
+    const undoButton = document.getElementById('undo-button');
+    const resetButton = document.getElementById('reset-button');
 
-h1 {
-    color: #333;
-}
+    let currentScore = 0;
+    let pdScore = 0;
+    let scoreHistory = [];
 
-#dartboard-container {
-    position: relative;
-    width: 450px;
-    height: 450px;
-    border-radius: 50%;
-    background-color: #333;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    margin-top: 20px;
-}
+    const dartNumbers = [20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5];
 
-.dart-button {
-    position: absolute;
-    cursor: pointer;
-    text-align: center;
-    font-weight: bold;
-    color: #fff;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    box-sizing: border-box;
-    border: none;
-    z-index: 2;
-}
+    const createButton = (value, text, className, radius, angle, colorClass = '') => {
+        const button = document.createElement('button');
+        button.classList.add('dart-button', className);
+        if (colorClass) {
+            button.classList.add(colorClass);
+        }
+        button.dataset.value = value;
+        button.textContent = text;
+        
+        // This is the core fix: `transform: translate()` is a reliable way to center elements
+        // and `transform: rotate()` correctly positions them in a circle without overlap.
+        button.style.transform = `translate(-50%, -50%) rotate(${angle}deg) translate(0, -${radius}px) rotate(-${angle}deg)`;
+        
+        return button;
+    };
 
-.bullseye {
-    background-color: #f00;
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    transform: translate(-50%, -50%);
-}
+    const buildDartboard = () => {
+        // Center buttons
+        const bullseye50 = createButton(50, '50', 'bullseye', 0, 0);
+        dartboardContainer.appendChild(bullseye50);
 
-.bullseye-25 {
-    background-color: #0c0;
-    width: 80px;
-    height: 80px;
-    border-radius: 50%;
-    transform: translate(-50%, -50%);
-}
+        const bullseye25 = createButton(25, '25', 'bullseye-25', 0, 0);
+        dartboardContainer.appendChild(bullseye25);
 
-.double-ring, .triple-ring, .outer-number {
-    border-radius: 50%;
-}
+        const degreesPerSector = 360 / dartNumbers.length;
 
-.double-ring {
-    width: 40px;
-    height: 40px;
-    font-size: 0.8em;
-}
+        dartNumbers.forEach((number, index) => {
+            // Angle starts at the top (0 degrees) for the 20 segment
+            const angleInDegrees = index * degreesPerSector;
+            const colorClass = index % 2 === 0 ? 'red-segment' : 'green-segment';
 
-.triple-ring {
-    width: 30px;
-    height: 30px;
-    font-size: 0.7em;
-}
+            // Adjusting radius values to prevent overlap
+            const outerNumberRadius = 200;
+            const doubleRadius = 160;
+            const tripleRadius = 120;
+            
+            // Outer Number
+            const outerNumberButton = createButton(number, number, 'outer-number', outerNumberRadius, angleInDegrees, colorClass);
+            dartboardContainer.appendChild(outerNumberButton);
 
-.outer-number {
-    background-color: #fff;
-    color: #333;
-    width: 45px;
-    height: 45px;
-    font-size: 1em;
-}
+            // Double Ring
+            const doubleButton = createButton(number * 2, `D${number}`, 'double-ring', doubleRadius, angleInDegrees, colorClass);
+            dartboardContainer.appendChild(doubleButton);
 
-.red-segment { background-color: #f00; }
-.green-segment { background-color: #0c0; }
+            // Triple Ring
+            const tripleButton = createButton(number * 3, `T${number}`, 'triple-ring', tripleRadius, angleInDegrees, colorClass);
+            dartboardContainer.appendChild(tripleButton);
+        });
+    };
 
-.score-display { margin-top: 30px; }
+    const updateUI = () => {
+        currentScoreDisplay.textContent = currentScore;
+        pdScoreDisplay.textContent = pdScore;
+    };
 
-.coin-container {
-    width: 100px;
-    height: 100px;
-    border-radius: 50%;
-    background-color: #ffcc00;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-size: 2em;
-    font-weight: bold;
-    color: #333;
-    box-shadow: 0 0 5px rgba(0, 0, 0, 0.3);
-}
+    dartboardContainer.addEventListener('click', (event) => {
+        const target = event.target;
+        if (target.classList.contains('dart-button')) {
+            const value = parseInt(target.dataset.value, 10);
+            
+            currentScore += value;
+            scoreHistory.push(value);
 
-.player-score-container {
-    margin-top: 20px;
-    font-size: 1.5em;
-    display: flex;
-    align-items: center;
-}
+            if (currentScore >= 100) {
+                pdScore++;
+                currentScore = 0;
+            }
+            updateUI();
+        }
+    });
 
-.controls { margin-top: 20px; }
+    undoButton.addEventListener('click', () => {
+        if (scoreHistory.length > 0) {
+            const lastScore = scoreHistory.pop();
+            currentScore -= lastScore;
+            
+            if (currentScore < 0) {
+                currentScore = 0;
+            }
+            updateUI();
+        }
+    });
 
-.controls button {
-    padding: 10px 20px;
-    font-size: 1em;
-    cursor: pointer;
-    margin: 0 10px;
-    border: 1px solid #ccc;
-    background-color: #eee;
-    border-radius: 5px;
-}
+    resetButton.addEventListener('click', () => {
+        currentScore = 0;
+        pdScore = 0;
+        scoreHistory = [];
+        updateUI();
+    });
+
+    buildDartboard();
+    updateUI();
+});
 
